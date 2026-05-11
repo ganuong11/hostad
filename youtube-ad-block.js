@@ -20,6 +20,28 @@ if ($response.body) {
                 delete body.playabilityStatus.messages;
             }
         }
+        if (body.playerResponse && body.playerResponse.adPlacements) {
+            body.playerResponse.adPlacements = [];
+        }
+        if (body.playerResponse && body.playerResponse.playerAds) {
+            body.playerResponse.playerAds = [];
+        }
+        if (body.playerResponse && body.playerResponse.adSlots) {
+            body.playerResponse.adSlots = [];
+        }
+        if (body.playerResponse && body.playerResponse.playabilityStatus) {
+            body.playerResponse.playabilityStatus.status = "OK";
+            if (body.playerResponse.playabilityStatus.messages) {
+                delete body.playerResponse.playabilityStatus.messages;
+            }
+        }
+        if (body.engagementPanels) {
+            body.engagementPanels = body.engagementPanels.filter(panel =>
+                !panel.panelIdentifier ||
+                (panel.panelIdentifier !== "engagement-panel-ads" &&
+                 panel.panelIdentifier !== "engagement-panel-closetory")
+            );
+        }
 
         $done({ body: JSON.stringify(body) });
     } catch (e) {
