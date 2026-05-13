@@ -3,10 +3,15 @@ if ($response.body) {
         if ($request && $request.url) {
             let url = $request.url;
             if (url.indexOf("/player/ad_break") !== -1 ||
+                url.indexOf("/player/ad_cue") !== -1 ||
                 url.indexOf("/player/heartbeat") !== -1 ||
                 url.indexOf("/player/get_live_stream_ad_tag") !== -1 ||
+                url.indexOf("/player/get_live_chat_ad_tag") !== -1 ||
                 url.indexOf("/ptracking") !== -1 ||
                 url.indexOf("/pagead") !== -1 ||
+                url.indexOf("/pcs/activeview") !== -1 ||
+                url.indexOf("/api/stats/ads") !== -1 ||
+                url.indexOf("/api/stats/atr") !== -1 ||
                 url.indexOf("/get_video_info") !== -1) {
                 $done({ body: "" });
                 return;
@@ -62,6 +67,10 @@ if ($response.body) {
             if (obj.playerOverlay) {
                 delete obj.playerOverlay.adSlotRenderer;
                 delete obj.playerOverlay.playerOverlayAdBadgeRenderer;
+                delete obj.playerOverlay.adBreakTimelineData;
+                delete obj.playerOverlay.adMarkerRenderer;
+                delete obj.playerOverlay.countdownBannerRenderer;
+                delete obj.playerOverlay.adDisclosureBannerRenderer;
                 if (obj.playerOverlay.playerOverlayVideoDetailsRenderer) {
                     delete obj.playerOverlay.playerOverlayVideoDetailsRenderer.adBadge;
                     delete obj.playerOverlay.playerOverlayVideoDetailsRenderer.promotedContent;
@@ -69,14 +78,16 @@ if ($response.body) {
                 if (obj.playerOverlay.endScreenDecoratorRenderer) {
                     delete obj.playerOverlay.endScreenDecoratorRenderer.adBadge;
                 }
-                delete obj.playerOverlay.adBreakTimelineData;
-                delete obj.playerOverlay.adMarkerRenderer;
             }
 
             delete obj.promotedSparklesWeb;
             delete obj.promotedSparklesWebRenderer;
             delete obj.adPromotedContent;
             delete obj.merchandise;
+            delete obj.adBadgeRenderer;
+            delete obj.adDisclosureBadgeRenderer;
+            delete obj.feedAdMetadata;
+            delete obj.feedAdExtension;
 
             if (obj.cards && obj.cards.cardCollectionRenderer) {
                 let cards = obj.cards.cardCollectionRenderer.cards;
@@ -114,12 +125,20 @@ if ($response.body) {
             batch.mutations = batch.mutations.filter(mutation => {
                 if (!mutation.payload) return true;
                 return !mutation.payload.adSlotEntity &&
-                       !mutation.payload.adBreakEntity &&
-                       !mutation.payload.adEntityRenderer &&
-                       !mutation.payload.adCta &&
-                       !mutation.payload.adCtaEntity &&
-                       !mutation.payload.promotedContentEntity &&
-                       !mutation.payload.adPromotedContentEntity;
+                        !mutation.payload.adBreakEntity &&
+                        !mutation.payload.adEntityRenderer &&
+                        !mutation.payload.adCta &&
+                        !mutation.payload.adCtaEntity &&
+                        !mutation.payload.promotedContentEntity &&
+                        !mutation.payload.adPromotedContentEntity &&
+                        !mutation.payload.adBadgeEntity &&
+                        !mutation.payload.adDisclosureEntity &&
+                        !mutation.payload.countdownBannerEntity &&
+                        !mutation.payload.adCardBadgeEntity &&
+                        !mutation.payload.adIconTextEntity &&
+                        !mutation.payload.adRatingEntity &&
+                        !mutation.payload.feedAdMetadataEntity &&
+                        !mutation.payload.feedAdExtensionEntity;
             });
         }
 
@@ -135,7 +154,13 @@ if ($response.body) {
                     item.inFeedVideoAdRenderer || item.adSlotRenderer ||
                     item.videoDisplayCarouselRenderer ||
                     item.mastheadVideoBannerRenderer ||
-                    item.compactPromotedVideoRenderer) {
+                    item.compactPromotedVideoRenderer ||
+                    item.adDisclosureBadgeRenderer ||
+                    item.adDetailsRenderer ||
+                    item.countdownBannerRenderer ||
+                    item.adIconTextRenderer ||
+                    item.adRatingRenderer ||
+                    item.adCardBadgeRenderer) {
                     items.splice(i, 1);
                     continue;
                 }
@@ -144,7 +169,8 @@ if ($response.body) {
                     let c = item.richItemRenderer.content;
                     if (c.adSlotRenderer || c.promotedSparklesWebRenderer ||
                         c.displayAdRenderer || c.searchPyvRenderer ||
-                        c.inFeedVideoAdRenderer) {
+                        c.inFeedVideoAdRenderer || c.adDisclosureBadgeRenderer ||
+                        c.countdownBannerRenderer || c.adDetailsRenderer) {
                         items.splice(i, 1);
                         continue;
                     }
@@ -175,11 +201,17 @@ if ($response.body) {
                 }
 
                 if (item.reelShelfRenderer && item.reelShelfRenderer.items) {
-                    let hadAds = false;
                     item.reelShelfRenderer.items = item.reelShelfRenderer.items.filter(ri => {
-                        if (ri && (ri.adSlotRenderer || ri.promotedSparklesWebRenderer)) {
-                            hadAds = true;
+                        if (ri && (ri.adSlotRenderer || ri.promotedSparklesWebRenderer ||
+                            ri.adDisclosureBadgeRenderer)) {
                             return false;
+                        }
+                        if (ri && ri.reelItemRenderer) {
+                            let reel = ri.reelItemRenderer;
+                            if (reel.adBadge || reel.promotedContent ||
+                                reel.adSubscribeButton || reel.adAvatar) {
+                                return false;
+                            }
                         }
                         return true;
                     });
@@ -193,6 +225,9 @@ if ($response.body) {
             delete obj.masthead;
             delete obj.mastheadVideoBannerRenderer;
             delete obj.topbarDesktopRenderer;
+            delete obj.feedAdMetadata;
+            delete obj.feedAdExtension;
+            delete obj.adDisclosureBannerRenderer;
 
             if (obj.contents) stripContentAds(obj.contents);
             if (obj.continuationContents) stripContentAds(obj.continuationContents);
@@ -243,6 +278,17 @@ if ($response.body) {
                 if (ep.adLayout) return false;
                 return true;
             });
+            if (obj.entries) {
+                for (let entry of obj.entries) {
+                    if (entry.reelItemRenderer) {
+                        delete entry.reelItemRenderer.adBadge;
+                        delete entry.reelItemRenderer.promotedContent;
+                        delete entry.reelItemRenderer.adSubscribeButton;
+                        delete entry.reelItemRenderer.adAvatar;
+                        delete entry.reelItemRenderer.adDisclosureBadgeRenderer;
+                    }
+                }
+            }
         }
 
         stripPlayerAds(body);
